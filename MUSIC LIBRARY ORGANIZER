@@ -1,0 +1,253 @@
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <string>
+#include <algorithm>
+#include <fstream>
+#include <sstream>
+
+class MusicTrack {
+public:
+    std::string title;
+    std::string artist;
+    std::string album;
+    int year;
+
+    MusicTrack(const std::string& title, const std::string& artist, const std::string& album, int year)
+        : title(title), artist(artist), album(album), year(year) {}
+
+  
+    std::string serialize() const {
+        return title + "|" + artist + "|" + album + "|" + std::to_string(year);
+    }
+
+    
+    static bool deserialize(const std::string& line, MusicTrack& track) {
+        std::stringstream ss(line);
+        std::string yearStr;
+        if (!std::getline(ss, track.title, '|')) return false;
+        if (!std::getline(ss, track.artist, '|')) return false;
+        if (!std::getline(ss, track.album, '|')) return false;
+        if (!std::getline(ss, yearStr, '|')) return false;
+        try {
+            track.year = std::stoi(yearStr);
+        }
+        catch (...) {
+            track.year = 0;
+        }
+        return true;
+    }
+};
+
+class MusicLibrary {
+private:
+    std::vector<MusicTrack> tracks;
+    std::unordered_map<std::string, std::vector<MusicTrack>> artistIndex;
+    std::unordered_map<std::string, std::vector<MusicTrack>> albumIndex;
+
+public:
+    void addTrack(const MusicTrack& track) {
+        tracks.push_back(track);
+        artistIndex[track.artist].push_back(track);
+        albumIndex[track.album].push_back(track);
+    }
+
+    std::vector<MusicTrack> searchByArtist(const std::string& artist) const {
+        auto it = artistIndex.find(artist);
+        if (it != artistIndex.end())
+            return it->second;
+        else
+            return {};
+    }
+
+    std::vector<MusicTrack> searchByAlbum(const std::string& album) const {
+        auto it = albumIndex.find(album);
+        if (it != albumIndex.end())
+            return it->second;
+        else
+            return {};
+    }
+
+    std::vector<MusicTrack> searchByTitle(const std::string& title) const {
+        std::vector<MusicTrack> results;
+        for (const auto& track : tracks) {
+            if (track.title.find(title) != std::string::npos) {
+                results.push_back(track);
+            }
+        }
+        return results;
+    }
+
+    void displayTracks(const std::vector<MusicTrack>& results) const {
+        if (results.empty()) {
+            std::cout << "No tracks found.\n";
+            return;
+        }
+        for (const auto& track : results) {
+            std::cout << "Title: " << track.title
+                << ", Artist: " << track.artist
+                << ", Album: " << track.album
+                << ", Year: " << track.year << std::endl;
+        }
+    }
+
+    void displayAllTracks() const {
+        if (tracks.empty()) {
+            std::cout << "Library is empty.\n";
+            return;
+        }
+        for (const auto& track : tracks) {
+            std::cout << "Title: " << track.title
+                << ", Artist: " << track.artist
+                << ", Album: " << track.album
+                << ", Year: " << track.year << std::endl;
+        }
+    }
+
+    
+    bool saveToFile(const std::string& filename) const {
+        std::ofstream ofs(filename);
+        if (!ofs) {
+            return false;
+        }
+        for (const auto& track : tracks) {
+            ofs << track.serialize() << "\n";
+        }
+        return true;
+    }
+
+    
+    bool loadFromFile(const std::string& filename) {
+        std::ifstream ifs(filename);
+        if (!ifs) {
+            return false; 
+        }
+        tracks.clear();
+        artistIndex.clear();
+        albumIndex.clear();
+
+        std::string line;
+        while (std::getline(ifs, line)) {
+            MusicTrack track("", "", "", 0);
+            if (MusicTrack::deserialize(line, track)) {
+                addTrack(track);
+            }
+        }
+        return true;
+    }
+};
+
+void printMenu() {
+    std::cout << "\nMusic Library Organizer Menu\n";
+    std::cout << "1 - Add a track\n";
+    std::cout << "2 - Search tracks by artist\n";
+    std::cout << "3 - Search tracks by album\n";
+    std::cout << "4 - Search tracks by title\n";
+    std::cout << "5 - Display all tracks\n";
+    std::cout << "6 - Save library to file\n";
+    std::cout << "7 - Load library from file\n";
+    std::cout << "0 - Exit\n";
+    std::cout << "Enter your choice: ";
+}
+
+int main() {
+    MusicLibrary library;
+    const std::string filename = "music_library.txt";
+
+    
+    if (library.loadFromFile(filename)) {
+        std::cout << "Loaded music library from '" << filename << "'.\n";
+    }
+    else {
+        std::cout << "No existing library found. Starting fresh.\n";
+    }
+
+    std::string input;
+
+    while (true) {
+        printMenu();
+        std::getline(std::cin, input);
+
+        if (input == "1") {
+            std::string title, artist, album;
+            int year = 0;
+
+            std::cout << "Enter track title: ";
+            std::getline(std::cin, title);
+            std::cout << "Enter artist name: ";
+            std::getline(std::cin, artist);
+            std::cout << "Enter album name: ";
+            std::getline(std::cin, album);
+            std::cout << "Enter release year: ";
+            std::string yearStr;
+            std::getline(std::cin, yearStr);
+            try {
+                year = std::stoi(yearStr);
+            }
+            catch (...) {
+                std::cout << "Invalid year. Setting year to 0.\n";
+                year = 0;
+            }
+
+            library.addTrack(MusicTrack(title, artist, album, year));
+            std::cout << "Track added to the library.\n";
+
+        }
+        else if (input == "2") {
+            std::cout << "Enter artist to search: ";
+            std::string artist;
+            std::getline(std::cin, artist);
+            auto results = library.searchByArtist(artist);
+            library.displayTracks(results);
+
+        }
+        else if (input == "3") {
+            std::cout << "Enter album to search: ";
+            std::string album;
+            std::getline(std::cin, album);
+            auto results = library.searchByAlbum(album);
+            library.displayTracks(results);
+
+        }
+        else if (input == "4") {
+            std::cout << "Enter title keyword to search: ";
+            std::string title;
+            std::getline(std::cin, title);
+            auto results = library.searchByTitle(title);
+            library.displayTracks(results);
+
+        }
+        else if (input == "5") {
+            library.displayAllTracks();
+
+        }
+        else if (input == "6") {
+            if (library.saveToFile(filename)) {
+                std::cout << "Library saved successfully to '" << filename << "'.\n";
+            }
+            else {
+                std::cout << "Failed to save library to file.\n";
+            }
+
+        }
+        else if (input == "7") {
+            if (library.loadFromFile(filename)) {
+                std::cout << "Library loaded successfully from '" << filename << "'.\n";
+            }
+            else {
+                std::cout << "Failed to load library from file.\n";
+            }
+
+        }
+        else if (input == "0") {
+            std::cout << "Exiting Music Library Organizer.\n";
+            break;
+
+        }
+        else {
+            std::cout << "Invalid choice. Please enter a valid option.\n";
+        }
+    }
+
+    return 0;
+}
